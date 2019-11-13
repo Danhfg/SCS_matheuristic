@@ -100,6 +100,8 @@ simulatedAnelling(std::vector<std::string> palavras, double temperaturaMax, doub
   std::vector<std::string> savedStrings = randomPermutation(palavras);
   int delta = 0;
 
+  std::vector<std::string> melhorStrings = savedStrings; 
+
   while (temperaturaAtual >= temperaturaMin) {
     std::vector<std::string> newStrings = randomSwap(savedStrings);
     delta = fitness(newStrings) - fitness(savedStrings);
@@ -107,12 +109,17 @@ simulatedAnelling(std::vector<std::string> palavras, double temperaturaMax, doub
     if (  delta <= 0 || 
           (delta > 0  && (randomNumber() <=  std::exp(((-1)*delta)/temperaturaAtual)) ) 
         ) {
-      savedStrings.swap(newStrings);
+      savedStrings= newStrings;
     }  
   
     temperaturaAtual *= std::exp(((-1)*lambda*temperaturaAtual)/theta);
     
+    if ( fitness(savedStrings) < fitness(melhorStrings) ) {
+      melhorStrings = savedStrings;
+    }
+  
   }
+  
   std::string minunSuperstringCommon = "";
   for (int i=0; i < savedStrings.size(); ++i) {
     minunSuperstringCommon = overlapjoin(minunSuperstringCommon, savedStrings[i]);
@@ -125,5 +132,14 @@ int main() {
   std::vector<std::string> a =   
   {"ACTGTGTGCTATCTAGCTAGATAT","CGCTCGCATAGCTAGCTATATATA","GCGCGCTACGACTATCAGCATCAGCAT","CAGCAAAAAAATGTCAGCTAG","CATCGATAAACGACGGGCTAGCTAG","CTATATATAGCTAGTCAGTCGATGCTAG","AATTATATATATGCGCGCGATTCAGT","CAGCAGTCAGTGCGCGCTAG","ATCGTAGCATGCATACTACAGCTAG","CATCAGGGGAGGATTGAAACCCCCCCCTT","ACTGTGTGCTATCTAGCTAGATATCGC","TCGCATAGCTAGCTATATATAGCGCGCT","ACGACTATCAGCATCAGCATCA","GCAAAAAAATGTCAGCTAGCATCGATAAA","CGACGGGCTAGCTAGCTATATATAG","CTAGTCAGTCGATGCTAGAATTATA","TATATGCGCGCGATTCAGTCAGCAG","TCAGTGCGCGCTAGATCGTAGCA","TGCATACTACAGCTAGCATCA","GGGGAGGATTGAAACCCCCC","CCTTACTGTGTGCTATCTAGCTAGATATC","GCTCGCATAGCTAGCTATATATAG","CGCGCTACGACTATCAGCA","TCAGCATCAGCAAAAAAATGTCAGCT","AGCATCGATAAACGACGGGCTA","GCTAGCTATATATAGCTAGTCAGT","CGATGCTAGAATTATATATA","TGCGCGCGATTCAGTCAG","CAGTCAGTGCGCGCTAGATCGTAG","CATGCATACTACAGCTAGCAT","CAGGGGAGGATTGAAACCCCCCCCTTACTGTG","TGCTATCTAGCTAGATATCGCTC","GCATAGCTAGCTATATATAGC","GCGCTACGACTATCAGCATC","AGCATCAGCAAAAAAATGTCAGCTA","GCATCGATAAACGACGGGCT","AGCTAGCTATATATAGCTAGTCA","GTCGATGCTAGAATTATATATA","TGCGCGCGATTCAGTCAGCAGTCAG","TGCGCGCTAGATCGTAGCATGC","ATACTACAGCTAGCATCAGGGG","AGGATTGAAACCCCCCCCTT","ACTGTGTGCTATCTAGCTAGAT","ATCGCTCGCATAGCTAGCTAT","ATATAGCGCGCTACGACTATCAG","CATCAGCATCAGCAAAAAAATGTCAGCTA","GCATCGATAAACGACGGGCTAG","CTAGCTATATATAGCTAGTCAGTCGA","TGCTAGAATTATATATATGC","GCGCGATTCAGTCAGCAGTCAGTGCG","CGCTAGATCGTAGCATGCATA","CTACAGCTAGCATCAGGGG","AGGATTGAAACCCCCCCCTT"};
     
-  std::cout << simulatedAnelling(a, 100, 0.0005, 5).length() << std::endl<< "OK" ;
+  
+  std::string superstringCommon = simulatedAnelling(a, 100, 0.0005, 5);
+
+  int tamanhoSuperstring = superstringCommon.length(); 
+    
+  std::cout << std::endl << "Tamanho da superstring commum encontrada: " << tamanhoSuperstring 
+            << std::endl
+            << superstringCommon;
+
+  return 0;
 }
