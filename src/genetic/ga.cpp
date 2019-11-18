@@ -2,6 +2,8 @@
 #include <string>
 #include <vector>
 #include <random>
+#include <algorithm>
+#include <fstream>
 
 static bool starts_with(const std::string str, const std::string prefix){
     return ((prefix.size() <= str.size()) && std::equal(prefix.begin(), prefix.end(), str.begin()));
@@ -13,7 +15,7 @@ int overlap(std::string a, std::string b, int min_length=5){
     int start = 0; 
     while (1){
         start = a.find(b.substr(0,min_length), start);
-        if (start == -1)
+        if (start == std::string::npos)
             return 0;
         if (starts_with(b,a.substr(start,a.size()-1) ) )
             return (a.size())-start;
@@ -22,7 +24,8 @@ int overlap(std::string a, std::string b, int min_length=5){
 }
 
 std::vector<double> fitness(std::vector<std::string> S,
-                          std::vector<std::vector<bool>> P){
+                          std::vector<std::vector<bool>> P)
+{
 
     std::vector<double> fitnessVector(P.size());
     int cont = 0;
@@ -44,10 +47,11 @@ std::vector<double> fitness(std::vector<std::string> S,
             if (i[j] == true)
             {
                 int over = overlap(S[lastOne], S[j], 1);
-                stringderived += S[j].substr(over);
+                if (over < S[j].size())
+                    stringderived += S[j].substr(over);
             }
         }
-
+        /*
         std::string stringNaoCoberta = "";
         for (auto j (lastOne+1); j < S.size()-1; ++j)
         {
@@ -56,22 +60,29 @@ std::vector<double> fitness(std::vector<std::string> S,
                 int over = overlap(stringNaoCoberta, S[j], 1);
                 stringNaoCoberta += S[j].substr(over);
             }
+        }*/
+        int m = 0;
+        for (auto b: i){
+            if (!b)
+                ++m;
         }
+        fitnessVector[cont++] = 1.0/(std::pow((double)(stringderived.size()+m), 2));
 
-        int over = overlap(stringderived, stringNaoCoberta, 1);
-        std::string superstring = stringderived + stringNaoCoberta.substr(over);
+        //int over = overlap(stringderived, stringNaoCoberta, 1);
+        //std::string superstring = stringderived + stringNaoCoberta.substr(over);
 
         //std::cout << (double)1/(double)(superstring.size()*superstring.size())+1<< std::endl;
 
-        fitnessVector[cont++] = 1.0/((double)(superstring.size()*(double)superstring.size())+1);
+        //fitnessVector[cont++] = 1.0/((double)(superstring.size()*(double)superstring.size())+1);
     }
 
     return fitnessVector;
 }
 
-std::vector<std::vector<bool>> tournamentSelection(std::vector<double> fitness, 
+std::vector<std::vector<bool>> rouletteSelection(std::vector<double> fitness, 
                                                     std::vector<std::vector<bool>> P,
-                                                    double percProb){
+                                                    double percProb)
+{
     std::random_device dev;
     std::mt19937 rng(dev());
     std::uniform_int_distribution<std::mt19937::result_type> distSize(0,P.size()-1);
@@ -86,55 +97,39 @@ std::vector<std::vector<bool>> tournamentSelection(std::vector<double> fitness,
             min = i;
         }
     }
-    newP.push_back(P[min]);
+    //newP.push_back(P[min]);
 
-    while(newP.size()!= P.size()){
-        std::vector<int> randomInd(32);
-        for (int i = 0; i < 32; ++i)
-        {
-            auto randomNumber(distSize(rng));
-            for (int j = 0; j < i; ++j)
-            {
-                if (randomInd[j] == randomNumber)
-                {
-                    --i;
-                    break;
-                }
-            }
-            randomInd[i] = randomNumber;
-        }
-        std::vector<int> randomInd2(32);
-        for (int i = 0; i < 32; ++i)
-        {
-            auto randomNumber(distSize(rng));
-            for (int j = 0; j < i; ++j)
-            {
-                if (randomInd2[j] == randomNumber)
-                {
-                    --i;
-                    break;
-                }
-            }
-            randomInd2[i] = randomNumber;
-        }
-        auto min (fitness [randomInd[0]]);
-        for (auto i: randomInd)
-        {
-            if (fitness[i] < min)
-            {
-                min = fitness[i];
-            }
-        }
-        auto min2 (fitness[randomInd2[0]]);
-        for (auto i: randomInd2)
-        {
-            if (fitness[i] < min2)
-            {
-                min2 = fitness[i];
-            }
-        }
 
-        std::uniform_int_distribution<std::mt19937::result_type> distSizeBool(0,P[1].size()-1);
+    long double total = 0.0;
+    for (auto fit : fitness)
+    {
+        total += fit;
+    }
+    while(newP.size() < P.size()){
+        std::uniform_real_distribution<long double> fitnessSize(0,total);
+        auto randomFit1(fitnessSize(rng));
+        auto randomFit2(fitnessSize(rng));
+        long double sumFit = 0.0;
+        int index = 0;
+        int index1 = 0;
+        int index2 = 0;
+        //std::cout << sumFit << "/" << randomFit1 << std::endl;
+        while(sumFit <= randomFit1 && index != 499){
+            //std::cout << sumFit << "|"<< randomFit1;
+            sumFit += fitness[index];
+            ++index;
+        }
+        index1 = index;
+        index = 0;
+        sumFit = 0.0;
+        while(sumFit <= randomFit2 && index != 499){
+            sumFit += fitness[index];
+            ++index;
+        }
+        index2 = index;
+        //std::cout << index1 << " "<< index2 <<std::endl;
+
+        std::uniform_int_distribution<std::mt19937::result_type> distSizeBool(0,P[0].size()-1);
         auto pos1(distSizeBool(rng));
         auto pos2(distSizeBool(rng));
         while(pos1 == pos2){pos2 = distSizeBool(rng);}
@@ -144,35 +139,75 @@ std::vector<std::vector<bool>> tournamentSelection(std::vector<double> fitness,
             pos2 = temp;
         }
 
-        std::vector<bool> individ;
+
+        std::vector<bool> individ(P[0].size());
+        std::vector<bool> individ2(P[0].size());
+
         for (int i = 0; i < pos1; ++i)
         {
-            individ.push_back(randomInd[i]);
+            individ[i] = (P[index1][i]);
+            individ2[i] = (P[index2][i]);
         }
-        for (auto i (pos1); i < pos2; ++i)
+        for (int i = pos1; i < pos2; ++i)
         {
-            individ.push_back(randomInd2[i]);
+            individ[i] = (P[index1][i]);
+            individ2[i] = (P[index2][i]);
         }
-        for (auto i (pos2); i < randomInd.size(); ++i)
+        for (int i = pos2; i < P[0].size(); ++i)
         {
-            individ.push_back(randomInd[i]);
+            individ[i] = (P[index1][i]);
+            individ2[i] = (P[index2][i]);
         }
         std::default_random_engine generator;
-        std::uniform_real_distribution<double> distProb(0.0,1.0);
+        std::uniform_real_distribution<long double> distProb(0.0,1.0);
         auto prob(distProb(generator));
         if (prob < percProb)
         {
             auto randomPos(distSizeBool(rng));
             individ[randomPos] = not individ[randomPos];
         }
+        prob = distProb(generator);
+        if (prob < percProb)
+        {
+            auto randomPos(distSizeBool(rng));
+            individ2[randomPos] = not individ2[randomPos];
+        }
         newP.push_back(individ);
+        newP.push_back(individ2);
+
     }
 
     return newP;
 
 }
+std::string getSuperstring(std::vector<bool> individ, std::vector<std::string> S)
+{
+    std::string super = "";
+    for (int i = 0; i < S.size(); ++i)
+    {
+        if (individ[i])
+        {
+            int over = overlap(super, S[i], 1);
+            if (super.find(S[i]) == std::string::npos)
+                super += S[i].substr(over);
+        }
+    }
+    for (int i = 0; i < S.size(); ++i)
+    {
+        if (!individ[i])
+        {
+            int over = overlap(super, S[i], 1);
+            if (super.find(S[i]) == std::string::npos)
+                super += S[i].substr(over);
+        }
+    }
+    
+
+    return super;
+}
   
-std::string GA(std::vector<std::string> S, int numOfGenarations, double pMut){
+std::string GA(std::vector<std::string> S, int numOfGenarations, double pMut)
+{
     int t = 0;
 
     auto qntdString(S.size());
@@ -182,8 +217,7 @@ std::string GA(std::vector<std::string> S, int numOfGenarations, double pMut){
     std::random_device dev;
     std::mt19937 rng(dev());
     std::uniform_int_distribution<std::mt19937::result_type> dist2(0,1);
-
-    //std::cout << P.size()<< std::endl;
+    std::string superstringFinal = "";
 
     for (int k = 0; k < 500; ++k)
     {
@@ -192,76 +226,59 @@ std::string GA(std::vector<std::string> S, int numOfGenarations, double pMut){
             Pt[i] = (bool) dist2(rng);
         }
         P[k] = (Pt);
-        /*
-        for (auto l : Pt)
-        {
-            std::cout <<l;
-        }*/
     }
 
     auto fitnessVector (fitness(S, P));
     std::vector<std::vector<bool>> selectedIndividuals;
 
     while(t < numOfGenarations){
-        selectedIndividuals = tournamentSelection(fitnessVector, P, pMut);
+        selectedIndividuals = rouletteSelection(fitnessVector, P, pMut);
 
         fitnessVector = fitness(S,P);
         P = selectedIndividuals;
         ++t;
-    }
-
-    auto min (fitnessVector[0]);
-    for (auto i: fitnessVector)
-    {
-        if (i < min)
+        std::string superstring = "";
+        for (auto ind :P)
         {
-            min = i;
+            std::string aux = getSuperstring(ind, S);
+            if (superstring == "" or aux.size() < superstring.size())
+                superstring = aux;
         }
+        if (superstringFinal == "" or superstring.size()< superstringFinal.size())
+            superstringFinal = superstring;
+        std::cout << t << " " << superstringFinal.size() << std::endl;
     }
 
-    size_t lastOne;
-    std::string stringderived = "";
-    for (size_t j = 0; j < P[min].size(); ++j)
-    {
-        if (P[min][j] == true){
-            lastOne = j;
-            stringderived += S[lastOne];
-            break;
-        }
-    }
-    
-    for (auto j (lastOne+1); j < S.size()-1; ++j)
-    {
-        if (P[min][j] == true)
-        {
-            int over = overlap(S[lastOne], S[j], 1);
-            stringderived += S[j].substr(over);
-        }
-    }
-
-    std::string stringNaoCoberta = "";
-    for (auto j (lastOne+1); j < S.size()-1; ++j)
-    {
-        if (P[min][j] == false and stringderived.find(S[j]) == -1)
-        {
-            //stringNaoCoberta += S[j];
-            int over = overlap(stringNaoCoberta, S[j], 1);
-            stringNaoCoberta += S[j].substr(over);
-        }
-    }
-
-    int over = overlap(stringderived, stringNaoCoberta, 1);
-    std::string superstring = stringderived + stringNaoCoberta.substr(over);
-
-    return superstring;   
+    return superstringFinal;   
 
 }
 
 
-int main() 
+int main(int argc, char *argv[]) 
 {
-    std::vector<std::string> v = {"ACTGTGTGCTATCTAGCTAGATAT","CGCTCGCATAGCTAGCTATATATA","GCGCGCTACGACTATCAGCATCAGCAT","CAGCAAAAAAATGTCAGCTAG","CATCGATAAACGACGGGCTAGCTAG","CTATATATAGCTAGTCAGTCGATGCTAG","AATTATATATATGCGCGCGATTCAGT","CAGCAGTCAGTGCGCGCTAG","ATCGTAGCATGCATACTACAGCTAG","CATCAGGGGAGGATTGAAACCCCCCCCTT","ACTGTGTGCTATCTAGCTAGATATCGC","TCGCATAGCTAGCTATATATAGCGCGCT","ACGACTATCAGCATCAGCATCA","GCAAAAAAATGTCAGCTAGCATCGATAAA","CGACGGGCTAGCTAGCTATATATAG","CTAGTCAGTCGATGCTAGAATTATA","TATATGCGCGCGATTCAGTCAGCAG","TCAGTGCGCGCTAGATCGTAGCA","TGCATACTACAGCTAGCATCA","GGGGAGGATTGAAACCCCCC","CCTTACTGTGTGCTATCTAGCTAGATATC","GCTCGCATAGCTAGCTATATATAG","CGCGCTACGACTATCAGCA","TCAGCATCAGCAAAAAAATGTCAGCT","AGCATCGATAAACGACGGGCTA","GCTAGCTATATATAGCTAGTCAGT","CGATGCTAGAATTATATATA","TGCGCGCGATTCAGTCAG","CAGTCAGTGCGCGCTAGATCGTAG","CATGCATACTACAGCTAGCAT","CAGGGGAGGATTGAAACCCCCCCCTTACTGTG","TGCTATCTAGCTAGATATCGCTC","GCATAGCTAGCTATATATAGC","GCGCTACGACTATCAGCATC","AGCATCAGCAAAAAAATGTCAGCTA","GCATCGATAAACGACGGGCT","AGCTAGCTATATATAGCTAGTCA","GTCGATGCTAGAATTATATATA","TGCGCGCGATTCAGTCAGCAGTCAG","TGCGCGCTAGATCGTAGCATGC","ATACTACAGCTAGCATCAGGGG","AGGATTGAAACCCCCCCCTT","ACTGTGTGCTATCTAGCTAGAT","ATCGCTCGCATAGCTAGCTAT","ATATAGCGCGCTACGACTATCAG","CATCAGCATCAGCAAAAAAATGTCAGCTA","GCATCGATAAACGACGGGCTAG","CTAGCTATATATAGCTAGTCAGTCGA","TGCTAGAATTATATATATGC","GCGCGATTCAGTCAGCAGTCAGTGCG","CGCTAGATCGTAGCATGCATA","CTACAGCTAGCATCAGGGG","AGGATTGAAACCCCCCCCTT"};
-    std::cout << GA(v, 5000, 0.3).size() << std::endl;
+    std::fstream f(argv[1]);
+    std::string line;    
+    std::vector<std::string> vet;
+    if (f.is_open())
+    {
+        while (!f.eof() )
+        {
+            getline (f,line);
+            vet.push_back(line);
+        }
+        f.close();
+        if (vet.empty())
+        {
+            std::cerr << "To run: ./bin/genetic <file> <numOfGenarations> <probMutations>" << std::endl;
+        }
+        else{
+            int n = std::stoi(argv[2]);
+            double pMut = std::stod(argv[3]);
 
+            //std::vector<std::string> v = {"GGTTTCAAGGTCTGTTTCCGAGTTTGACT","AGTCCTTCCCCCTTAACTGA","ACCATACGCCGGGACCATCTTATACG","TAAGGGTTAATCGACTACACACCG","GTGAGTTGGGTCGACCAACC","TTCGGACTCTGCCTCCACAGGGA","CTCTCCGAGGCCGTTATAT","TTACGTGACCGAAAAAAGGTTAGCGTT","TACCTTGATCTTTTTGCGTAT","CCAACTAGGTTGATGCGTCGTGAAACGT","AAATTGGGAAGCT","GGTTTCAAGGTCTGTTTCCGAGTTT","GACTAGTCCTTCCCCCTTAAC","TGAACCATACGCCGGGACCAT","CTTATACGTAAGGGTTAATCGACTACA","CACCGGTGAGTTGGGTCGACCAACCTT","CGGACTCTGCCTCCACAGGGACTCTCC","GAGGCCGTTATATTTACGTG","ACCGAAAAAAGGTTAGCGTTT","ACCTTGATCTTTTTGCGTATCCA","ACTAGGTTGATGCGTCGTGAAA","CGTAAATTGGGAAGCT","GGTTTCAAGGTCTGTTTCCGAG","TTTGACTAGTCCTTCCCCCTTAACTG","AACCATACGCCGGGACCATCTTATACG","TAAGGGTTAATCGACTACACACC","GGTGAGTTGGGTCGACCAACCTTCGGACT","CTGCCTCCACAGGGACTCTCCGAGGCCG","TTATATTTACGTGACCGAAAAAAGGTTAG","CGTTTACCTTGATCTTTTTG","CGTATCCAACTAGGTTGATGCGTCGTGAA","ACGTAAATTGGGAAGCT","GGTTTCAAGGTCTGTTTCCGA","GTTTGACTAGTCCTTCCCCCTTAACTGA","ACCATACGCCGGGACCATCTTA","TACGTAAGGGTTAATCGACT","ACACACCGGTGAGTTGGGTCGA","CCAACCTTCGGACTCTGCC","TCCACAGGGACTCTCCGAG","GCCGTTATATTTACGTGACCGA","AAAAAGGTTAGCGTTTACCTTGAT","CTTTTTGCGTATCCAACTAGGTTGATGCG","TCGTGAAACGTAAATTGGGAAGCT","GGTTTCAAGGTCTGTTTCCG","AGTTTGACTAGTCCTTCCCCCTTAACT","GAACCATACGCCGGGACCATCTTATACGT","AAGGGTTAATCGACTACACACCGG","TGAGTTGGGTCGACCAACCTTCGGACT","CTGCCTCCACAGGGACTCTCCGAGGC","CGTTATATTTACGTGACCGAAA","AAAGGTTAGCGTTTACCTTG","ATCTTTTTGCGTATCCAACTAGG","TTGATGCGTCGTGAAACGTAA","ATTGGGAAGCT"};
+            //std::random_shuffle (v.begin(), v.end());
+            std::cout << GA(vet, n, pMut) << std::endl;
+        }
+    }
     return 0; 
 }
